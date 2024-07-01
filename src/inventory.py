@@ -12,7 +12,11 @@ def get_inventory(ip, username, password):
 
         # Comandos para obtener información de la BIOS y el firmware
         commands = {
-           # "SetGlobal0": "racadm set iDRAC.Users.GlobalUserSetting 0",
+            "BOSS": "racadm swinventory",
+            "IRC": "racadm swinventory",
+            "ServiceTag": "racadm get system.serverinfo.servicetag",
+            "BIOS.Setup.1-1#ProcSettings": "racadm get BIOS.ProcSettings.proc2brand",
+            "HostName": "racadm get system.ServerOS.HostName",
             "BIOS": "racadm getversion -f bios",
             "iDRAC": "racadm getversion -f idrac",
             "Lifecycle Controller": "racadm getversion -f lc",
@@ -32,6 +36,14 @@ def get_inventory(ip, username, password):
                 continue
 
             match key:
+                case "BOSS":
+                    inventory[key] = extract_boss_version(output)
+                case "IRC":
+                    inventory[key] = extract_irc_version(output)
+                case "ServiceTag":
+                    inventory[key] = parse_ServiceTag_output(output)
+                case "HostName":
+                    inventory[key] = parse_HostName_output(output)
                 case "SetGlobal0":
                     inventory[key] = parse_setglobal0_output(output)
                 case "iDRAC":
@@ -44,9 +56,11 @@ def get_inventory(ip, username, password):
                     inventory[key] = parse_cpld_output(output)
                 case "License":
                     inventory[key] = parse_license_output(output)
+                case "BIOS.Setup.1-1#ProcSettings":
+                    inventory["CPU"] = parse_cpu_output(output)
                 case _:
                     inventory[key] = parse_inventory_output(output)
-
+            
         return inventory
 
     except Exception as e:
@@ -56,6 +70,108 @@ def get_inventory(ip, username, password):
         ssh.close()
 
 
+def extract_boss_version(sw_inventory_output):
+    lines = sw_inventory_output.splitlines()
+    boss_info = {}
+    capturing = False
+
+    for line in lines:
+        line = line.strip()
+        
+        if line.startswith("ElementName = BOSS-N1 Monolithic"):
+            capturing = True
+        if capturing:
+            if "Rollback Version" in line:
+                capturing = False
+            if "Current Version" in line:
+                boss_info["BOSS-N1 Monolithic"] = line.split(" = ")[1]
+                capturing = False
+     
+    return boss_info if boss_info else "BOSS-N1 Monolithic - not Found"
+
+def extract_irc_version(sw_inventory_output):
+    lines = sw_inventory_output.splitlines()
+    irc_info = {}
+    capturing = False
+
+    for line in lines:
+        line = line.strip()
+                
+        if line.startswith("ElementName = Integrated Remote Access Controller"):
+            capturing = True
+        if capturing:
+            if "Rollback Version" in line:
+                capturing = False
+            if "Current Version" in line:
+                irc_info["Integrated Remote Access Controller Version"] = line.split(" = ")[1]
+                capturing = False
+
+    return irc_info if irc_info else "Integrated Remote Access Controller not Found"
+
+
+def extract_relevant_sw_info(sw_inventory_output):
+    relevant_fields = ["ElementName", "Current Version", "FQDD"]
+    relevant_info = []
+
+    lines = sw_inventory_output.splitlines()
+    for i in range(len(lines)):
+        if any(field in lines[i] for field in relevant_fields):
+            
+            print(lines[i].strip)
+            
+            if (lines[i].strip) == "BOSS-N1 Monolithic":
+                relevant_info.append(lines[i].strip())
+                print(relevant_info)
+                
+            if (lines[i].strip) == "ElementName = Integrated Remote Access Controller":
+                 if 'Integrated Remote Access Controller' in line:
+                    key, value = line.split('=', 1)
+                    key, value = key.strip(), value.strip()
+                    if key == "Integrated Remote Access Controller":
+                        Integrated[key] = value
+                        print(Integrated[key])
+                
+    return relevant_info
+
+def parse_HostName_output(output):
+    hostname = {}
+    lines = output.split('\n')
+    
+    for line in lines:
+        if 'HostName=' in line:
+            key, value = line.split('=', 1)
+            key, value = key.strip(), value.strip()
+            if key == "HostName":
+                hostname[key] = value
+
+    return hostname
+    
+def parse_ServiceTag_output(output):
+    ServiceTag = {}
+    lines = output.split('\n')
+    
+    for line in lines:
+        if 'ServiceTag=' in line:
+            key, value = line.split('=', 1)
+            key, value = key.strip(), value.strip()
+            if key == "ServiceTag":
+                ServiceTag[key] = value
+
+    return ServiceTag
+
+def parse_cpu_output(output):
+    cpu_info = {}
+    lines = output.split('\n')
+    
+    for line in lines:
+        if 'proc2brand=' in line:
+            key, value = line.split('=', 1)
+            key, value = key.strip(), value.strip()
+            if key == "proc2brand":
+                cpu_info[key] = value
+
+    return cpu_info
+ 
 def parse_Lifecycle_output(output):
     Lifecycle_info = {}
     lines = output.split('\n')
