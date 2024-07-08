@@ -1,0 +1,11 @@
+boss = 2.1.13.2025
+irc = 7.10.30.05
+bios = 2.1.5
+driverpack = 24.01.05
+idrac = 7.10.30.05
+backplane = 7.10
+cpld = 1.2.1
+lifecycle = 7.10.30.05
+license = PERPETUAL
+broadcom = 22.71.11.13
+netxtreme = 22.71.3
